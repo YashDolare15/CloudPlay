@@ -11,6 +11,7 @@ function Dashboard({ user, onLogout }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [moonlightLoading, setMoonlightLoading] = useState(false);
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState(0);
 
@@ -43,7 +44,7 @@ function Dashboard({ user, onLogout }) {
   }, []);
 
   /*
-   * Calculate remaining session time.
+   * Session countdown timer
    */
   useEffect(() => {
     if (!session?.expires_at) {
@@ -74,6 +75,9 @@ function Dashboard({ user, onLogout }) {
     return () => clearInterval(timer);
   }, [session]);
 
+  /*
+   * Start CloudPlay 1-hour session
+   */
   async function handleStartSession() {
     setActionLoading(true);
     setError("");
@@ -82,6 +86,7 @@ function Dashboard({ user, onLogout }) {
       const data = await startSession();
 
       setSession(data);
+      setTimeLeft(60 * 60);
     } catch (err) {
       setError(
         err.message || "Unable to start gaming session."
@@ -91,6 +96,9 @@ function Dashboard({ user, onLogout }) {
     }
   }
 
+  /*
+   * End CloudPlay session
+   */
   async function handleEndSession() {
     setActionLoading(true);
     setError("");
@@ -109,6 +117,53 @@ function Dashboard({ user, onLogout }) {
     }
   }
 
+  /*
+   * Open Moonlight through the local
+   * CloudPlay Launcher running on the client PC.
+   *
+   * The launcher must be running at:
+   * http://127.0.0.1:8765
+   */
+  async function handleOpenMoonlight() {
+    if (!sessionActive) {
+      setError("Start a CloudPlay session first.");
+      return;
+    }
+
+    setMoonlightLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8765/connect"
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "CloudPlay Launcher could not start Moonlight."
+        );
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(
+          data.error || "Unable to start Moonlight."
+        );
+      }
+
+      console.log("Moonlight launch requested successfully.");
+    } catch (err) {
+      console.error("Moonlight launcher error:", err);
+
+      setError(
+        "CloudPlay Launcher is not running. Start the CloudPlay Launcher on this PC and try again."
+      );
+    } finally {
+      setMoonlightLoading(false);
+    }
+  }
+
   function formatTime(seconds) {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -119,14 +174,20 @@ function Dashboard({ user, onLogout }) {
     ).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }
 
-  const sessionActive = Boolean(session && timeLeft > 0);
+  const sessionActive = Boolean(
+    session && timeLeft > 0
+  );
 
   return (
     <div className="app-shell">
+
+      {/* NAVBAR */}
       <nav className="navbar">
+
         <strong>CloudPlay</strong>
 
         <div className="nav-actions">
+
           <span>
             {user?.username || "CloudPlay User"}
           </span>
@@ -137,13 +198,16 @@ function Dashboard({ user, onLogout }) {
           >
             Logout
           </button>
+
         </div>
+
       </nav>
 
       <main className="dashboard">
 
         {/* PAGE HEADING */}
         <div className="page-heading">
+
           <div className="eyebrow">
             CLOUD GAMING PLATFORM
           </div>
@@ -156,23 +220,29 @@ function Dashboard({ user, onLogout }) {
             Start a gaming session and connect through
             Moonlight.
           </p>
+
         </div>
 
-        {/* ERROR */}
+
+        {/* ERROR MESSAGE */}
         {error && (
           <div className="message">
             {error}
           </div>
         )}
 
+
         {/* GAMING SESSION */}
         <section className="cloud-card">
+
           <div>
+
             <div className="card-title">
               Gaming Session
             </div>
 
             <div className="status">
+
               <span
                 className={`status-dot ${
                   sessionActive ? "running" : ""
@@ -182,118 +252,191 @@ function Dashboard({ user, onLogout }) {
               {sessionActive
                 ? "Session Active"
                 : "Available"}
+
             </div>
 
+
+            {/* ACTIVE SESSION INFORMATION */}
             {sessionActive && (
+
               <div className="spec-grid">
 
                 <div>
-                  <span>Time Remaining</span>
+
+                  <span>
+                    Time Remaining
+                  </span>
 
                   <strong>
                     {formatTime(timeLeft)}
                   </strong>
+
                 </div>
 
+
                 <div>
-                  <span>Host</span>
+
+                  <span>
+                    Host
+                  </span>
 
                   <strong>
                     Gaming Laptop
                   </strong>
+
                 </div>
 
               </div>
+
             )}
 
+
+            {/* AVAILABLE SESSION INFORMATION */}
             {!sessionActive && (
+
               <div className="spec-grid">
+
                 <div>
-                  <span>Session Duration</span>
+
+                  <span>
+                    Session Duration
+                  </span>
 
                   <strong>
                     1 Hour
                   </strong>
+
                 </div>
 
+
                 <div>
-                  <span>Status</span>
+
+                  <span>
+                    Status
+                  </span>
 
                   <strong>
                     Available
                   </strong>
+
                 </div>
+
               </div>
+
             )}
+
           </div>
 
+
+          {/* ACTION BUTTONS */}
           <div className="cloud-actions">
 
+            {/* START SESSION */}
             {!sessionActive && (
+
               <button
                 className="primary-button"
                 onClick={handleStartSession}
-                disabled={actionLoading || loading}
+                disabled={
+                  actionLoading ||
+                  loading
+                }
               >
+
                 {actionLoading
                   ? "Starting..."
                   : "START 1-HOUR SESSION"}
+
               </button>
+
             )}
 
+
+            {/* ACTIVE SESSION ACTIONS */}
             {sessionActive && (
+
               <>
+
+                {/* CONNECT TO MOONLIGHT */}
                 <button
                   className="primary-button"
-                  onClick={() => {
-                    window.open(
-                      "moonlight://",
-                      "_blank"
-                    );
-                  }}
+                  onClick={handleOpenMoonlight}
+                  disabled={
+                    actionLoading ||
+                    moonlightLoading
+                  }
                 >
-                  OPEN MOONLIGHT
+
+                  {moonlightLoading
+                    ? "OPENING MOONLIGHT..."
+                    : "OPEN MOONLIGHT"}
+
                 </button>
 
+
+                {/* EXIT SESSION */}
                 <button
                   className="secondary-button"
                   onClick={handleEndSession}
-                  disabled={actionLoading}
+                  disabled={
+                    actionLoading ||
+                    moonlightLoading
+                  }
                 >
+
                   {actionLoading
                     ? "Ending..."
                     : "EXIT SESSION"}
+
                 </button>
+
               </>
+
             )}
 
+
+            {/* REFRESH */}
             <button
               className="secondary-button"
               onClick={loadData}
-              disabled={loading || actionLoading}
+              disabled={
+                loading ||
+                actionLoading ||
+                moonlightLoading
+              }
             >
               Refresh
             </button>
 
           </div>
+
         </section>
+
 
         {/* GAMES */}
         <div className="section-heading">
-          <h2>CloudPlay Games</h2>
+
+          <h2>
+            CloudPlay Games
+          </h2>
 
           <p>
             Games available on the CloudPlay gaming
             machine.
           </p>
+
         </div>
 
+
         <div className="game-grid">
+
           {games.map((game) => (
+
             <div
               className="game-card"
               key={game.id}
             >
+
               <div className="game-icon">
                 🎮
               </div>
@@ -313,30 +456,46 @@ function Dashboard({ user, onLogout }) {
                   !sessionActive
                 }
               >
+
                 {game.status === "available"
                   ? sessionActive
                     ? "PLAY"
                     : "START SESSION"
                   : "COMING SOON"}
+
               </button>
+
             </div>
+
           ))}
+
         </div>
 
-        {/* LAUNCHERS */}
+
+        {/* GAME LAUNCHERS */}
         <div className="section-heading">
-          <h2>Your Game Launchers</h2>
+
+          <h2>
+            Your Game Launchers
+          </h2>
 
           <p>
             Use your own Steam or Epic Games account
             through the gaming machine.
           </p>
+
         </div>
+
 
         <div className="launcher-grid">
 
+
+          {/* STEAM */}
           <div className="launcher-card">
-            <h3>Steam</h3>
+
+            <h3>
+              Steam
+            </h3>
 
             <p>
               Access your Steam library through
@@ -349,10 +508,16 @@ function Dashboard({ user, onLogout }) {
             >
               OPEN STEAM
             </button>
+
           </div>
 
+
+          {/* EPIC GAMES */}
           <div className="launcher-card">
-            <h3>Epic Games</h3>
+
+            <h3>
+              Epic Games
+            </h3>
 
             <p>
               Access your Epic Games library through
@@ -365,11 +530,14 @@ function Dashboard({ user, onLogout }) {
             >
               OPEN EPIC
             </button>
+
           </div>
+
 
         </div>
 
       </main>
+
     </div>
   );
 }
