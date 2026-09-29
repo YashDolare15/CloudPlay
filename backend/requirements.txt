@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+boto3
+PyJWT[crypto]
+requests
+python-dotenv
+pytest
