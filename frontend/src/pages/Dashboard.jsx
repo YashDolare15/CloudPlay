@@ -118,11 +118,14 @@ function Dashboard({ user, onLogout }) {
   }
 
   /*
-   * Open Moonlight through the local
-   * CloudPlay Launcher running on the client PC.
+   * Open Moonlight through the local CloudPlay Launcher.
    *
-   * The launcher must be running at:
+   * The launcher runs on the CLIENT laptop:
+   *
    * http://127.0.0.1:8765
+   *
+   * It then starts Moonlight.exe and connects
+   * to the gaming PC through Tailscale.
    */
   async function handleOpenMoonlight() {
     if (!sessionActive) {
@@ -134,17 +137,28 @@ function Dashboard({ user, onLogout }) {
     setError("");
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8765/connect"
+      const launcherUrl =
+        "http://127.0.0.1:8765/connect";
+
+      console.log(
+        "Connecting to CloudPlay Launcher:",
+        launcherUrl
       );
+
+      const response = await fetch(launcherUrl, {
+        method: "GET",
+        mode: "cors",
+      });
 
       if (!response.ok) {
         throw new Error(
-          "CloudPlay Launcher could not start Moonlight."
+          `CloudPlay Launcher returned HTTP ${response.status}`
         );
       }
 
       const data = await response.json();
+
+      console.log("CloudPlay Launcher response:", data);
 
       if (!data.success) {
         throw new Error(
@@ -152,12 +166,17 @@ function Dashboard({ user, onLogout }) {
         );
       }
 
-      console.log("Moonlight launch requested successfully.");
+      console.log(
+        "Moonlight launch requested successfully."
+      );
     } catch (err) {
-      console.error("Moonlight launcher error:", err);
+      console.error(
+        "CloudPlay Launcher connection error:",
+        err
+      );
 
       setError(
-        "CloudPlay Launcher is not running. Start the CloudPlay Launcher on this PC and try again."
+        "Unable to connect to the CloudPlay Launcher. Make sure launcher.py is running on this laptop at http://127.0.0.1:8765 and try again."
       );
     } finally {
       setMoonlightLoading(false);
@@ -532,7 +551,6 @@ function Dashboard({ user, onLogout }) {
             </button>
 
           </div>
-
 
         </div>
 
